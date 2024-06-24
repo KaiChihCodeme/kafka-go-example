@@ -2,37 +2,25 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-
-	"github.com/segmentio/kafka-go"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-type Company struct {
-	CompanyId string `json:"companyId"`
-}
-
 func main() {
-	// create a new kafka writer
-	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers:  []string{"localhost:9092"},
-		Topic:    "test-topic",
-		Balancer: &kafka.LeastBytes{},
-	})
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	company := &Company{
-		CompanyId: "12aaa3",
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
-	companyJson, _ := json.Marshal(company)
+	go func() {
+		<-signals
+		cancel()
+	}()
 
-	// write a message
-	w.WriteMessages(context.Background(),
-		kafka.Message{
-			Key:   []byte("key"),
-			Value: companyJson,
-		},
-	)
+	// new a consumer
+	NewConsumer(ctx)
 
-	// close the writer
-	w.Close()
+	// new a writer
+	simpleWriter(ctx)
 }
